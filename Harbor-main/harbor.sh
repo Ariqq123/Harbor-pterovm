@@ -12,6 +12,7 @@ ROOTFS_DIR=/home/container
 UBUNTU_SERIES="24.04"
 UBUNTU_BASE_VERSION="24.04.4"
 PROOT_VERSION="5.3.0" # Some releases do not have static builds attached.
+DEFAULT_PACKAGES="ca-certificates curl nano sudo neofetch nginx git wget unzip zip less procps iproute2 net-tools locales tzdata bash-completion"
 
 # Detect the machine architecture.
 ARCH=$(uname -m)
@@ -77,6 +78,63 @@ if [ -n "${HOST_GID}" ] && ! grep -qE "^[^:]+:[^:]*:${HOST_GID}:" "${ROOTFS_DIR}
     printf "hostgid%s:x:%s:root\n" "${HOST_GID}" "${HOST_GID}" >> "${ROOTFS_DIR}/etc/group"
 fi
 
+# Install requested/default packages on first run.
+if [ ! -e $ROOTFS_DIR/.packages_installed ]; then
+    printf "\nInstalling default Ubuntu packages. This can take a few minutes...\n"
+
+    PROOT_NO_SECCOMP=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    HOME=/root \
+    USER=root \
+    XDG_CONFIG_HOME=/root/.config \
+    $ROOTFS_DIR/usr/local/bin/proot \
+    --rootfs="${ROOTFS_DIR}" \
+    --link2symlink \
+    --kill-on-exit \
+    --root-id \
+    --cwd=/root \
+    --bind=/proc \
+    --bind=/dev \
+    --bind=/sys \
+    --bind=/tmp \
+    /bin/sh -lc "
+set -e
+rm -f /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend
+
+# Some Pterodactyl runtimes block hardlinks in /var/lib/dpkg.
+if ! ln /var/lib/dpkg/status /var/lib/dpkg/.harbor-linktest 2>/dev/null; then
+  mkdir -p /tmp/dpkg-work
+  cp -a /var/lib/dpkg/. /tmp/dpkg-work/
+  rm -rf /var/lib/dpkg
+  ln -s /tmp/dpkg-work /var/lib/dpkg
+else
+  rm -f /var/lib/dpkg/.harbor-linktest
+fi
+
+dpkg --force-unsafe-io --configure -a || true
+apt -o Dpkg::Options::=\"--force-unsafe-io\" -f install -y || true
+apt update
+apt -o Dpkg::Options::=\"--force-unsafe-io\" install -y --no-install-recommends ${DEFAULT_PACKAGES}
+
+# Install Docker CLI/engine package if available.
+apt -o Dpkg::Options::=\"--force-unsafe-io\" install -y --no-install-recommends docker.io || true
+
+# Prefer PHP 8.2 if available; fallback to distro default PHP.
+if apt-cache show php8.2 >/dev/null 2>&1; then
+  apt -o Dpkg::Options::=\"--force-unsafe-io\" install -y --no-install-recommends php8.2 php8.2-cli php8.2-fpm
+else
+  apt -o Dpkg::Options::=\"--force-unsafe-io\" install -y --no-install-recommends php php-cli php-fpm
+fi
+
+apt clean
+rm -rf /var/lib/apt/lists/*
+"
+
+    touch $ROOTFS_DIR/.packages_installed
+fi
+
 # Print some useful information to the terminal before entering PRoot.
 # This is to introduce the user with the various Ubuntu commands.
 SHELL_BIN="/bin/bash"
@@ -95,6 +153,7 @@ clear && cat << EOF
  
  Welcome to Ubuntu Base rootfs!
  This is a lightweight Ubuntu userspace environment running through PRoot.
+ Default tools and common packages are auto-installed on first run.
  
  Here are some useful commands to get you started:
  
