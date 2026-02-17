@@ -5,7 +5,7 @@ import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 
 fun main() {
-    val defaultScriptUrl = "https://raw.githubusercontent.com/RealTriassic/Harbor/main/harbor.sh"
+    val defaultScriptUrl = "https://raw.githubusercontent.com/Ariqq123/Harbor-pterovm/main/Harbor-main/harbor.sh"
     val scriptUrl = System.getenv("HARBOR_SCRIPT_URL")?.takeIf { it.isNotBlank() } ?: defaultScriptUrl
     val destination = File("harbor.sh")
 
