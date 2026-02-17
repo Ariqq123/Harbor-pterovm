@@ -62,6 +62,15 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
     touch $ROOTFS_DIR/.installed
 fi
 
+# Ensure basic runtime paths exist for TUI apps/configs.
+mkdir -p ${ROOTFS_DIR}/root/.config
+
+# Map host primary GID to silence "cannot find name for group ID ..." warnings.
+HOST_GID=$(id -g 2>/dev/null || true)
+if [ -n "${HOST_GID}" ] && ! grep -qE "^[^:]+:[^:]*:${HOST_GID}:" "${ROOTFS_DIR}/etc/group"; then
+    printf "hostgid%s:x:%s:root\n" "${HOST_GID}" "${HOST_GID}" >> "${ROOTFS_DIR}/etc/group"
+fi
+
 # Print some useful information to the terminal before entering PRoot.
 # This is to introduce the user with the various Ubuntu commands.
 SHELL_BIN="/bin/bash"
@@ -108,6 +117,9 @@ PROOT_NO_SECCOMP=1 \
 DEBIAN_FRONTEND=noninteractive \
 LANG=C.UTF-8 \
 LC_ALL=C.UTF-8 \
+HOME=/root \
+USER=root \
+XDG_CONFIG_HOME=/root/.config \
 $ROOTFS_DIR/usr/local/bin/proot \
 --rootfs="${ROOTFS_DIR}" \
 --link2symlink \
