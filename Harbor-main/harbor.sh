@@ -65,6 +65,12 @@ fi
 # Ensure basic runtime paths exist for TUI apps/configs.
 mkdir -p ${ROOTFS_DIR}/root/.config
 
+# Pterodactyl + PRoot can block dpkg's safe backup/link behavior.
+# Force unsafe I/O mode to avoid status-old backup failures.
+mkdir -p ${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d ${ROOTFS_DIR}/etc/apt/apt.conf.d
+printf "force-unsafe-io\n" > ${ROOTFS_DIR}/etc/dpkg/dpkg.cfg.d/99harbor-unsafe-io
+printf "DPkg::Options { \"--force-unsafe-io\"; };\n" > ${ROOTFS_DIR}/etc/apt/apt.conf.d/99harbor-unsafe-io
+
 # Map host primary GID to silence "cannot find name for group ID ..." warnings.
 HOST_GID=$(id -g 2>/dev/null || true)
 if [ -n "${HOST_GID}" ] && ! grep -qE "^[^:]+:[^:]*:${HOST_GID}:" "${ROOTFS_DIR}/etc/group"; then
