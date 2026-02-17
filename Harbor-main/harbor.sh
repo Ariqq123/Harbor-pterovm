@@ -102,6 +102,12 @@ EOF
 
 # This command starts PRoot and binds several important directories
 # from the host file system to our special root file system.
+# Pterodactyl often blocks/limits some syscalls; disable seccomp acceleration
+# so link emulation (--link2symlink) is consistently applied for dpkg.
+PROOT_NO_SECCOMP=1 \
+DEBIAN_FRONTEND=noninteractive \
+LANG=C.UTF-8 \
+LC_ALL=C.UTF-8 \
 $ROOTFS_DIR/usr/local/bin/proot \
 --rootfs="${ROOTFS_DIR}" \
 --link2symlink \
